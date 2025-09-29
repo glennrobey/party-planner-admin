@@ -53,7 +53,30 @@ function EventDetails(event) {
   description.textContent = `Description: ${event.description}`;
   const location = document.createElement("p");
   location.textContent = `Location: ${event.location}`;
-  div.append(name, id, date, description, location);
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "Delete Event";
+
+  delBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${EVENTS_URL}/${event.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.status === 204) {
+        state.events = state.events.filter((e) => e.id !== event.id);
+        state.selectedEvent = null;
+        render();
+      } else {
+        alert("Couldn't delete event.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting event.");
+    }
+  });
+
+  div.append(name, id, date, description, location, delBtn);
   return div;
 }
 
@@ -69,29 +92,90 @@ function EventList(events) {
   return ul;
 }
 
+fetchEvents();
+
+function AddEventForm() {
+  const form = document.createElement("form");
+
+  const nameInput = document.createElement("input");
+  nameInput.placeholder = "Name";
+  nameInput.required = true;
+
+  const descInput = document.createElement("input");
+  descInput.placeholder = "Description";
+  descInput.required = true;
+
+  const dateInput = document.createElement("input");
+  dateInput.placeholder = "Date";
+  dateInput.type = "date";
+  dateInput.required = true;
+
+  const locInput = document.createElement("input");
+  locInput.placeholder = "Location";
+  locInput.required = true;
+
+  const subBtn = document.createElement("button");
+  subBtn.textContent = "Add Event";
+
+  form.append(nameInput, descInput, dateInput, locInput, subBtn);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const isoDate = new Date(dateInput.value).toISOString();
+
+    const newEvent = {
+      name: nameInput.value,
+      description: descInput.value,
+      date: isoDate,
+      location: locInput.value,
+    };
+
+    try {
+      const res = await fetch(EVENTS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEvent),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        state.events.push(data.data);
+        form.reset();
+        render();
+      } else {
+        alert("Couldn't create event.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error with creating event.");
+    }
+  });
+
+  return form;
+}
+
 function render() {
   document.body.innerHTML = "";
   const app = document.createElement("div");
   app.id = "app";
 
+  app.appendChild(AddEventForm());
+
   if (!state.events.length) {
-    app.textContent = "No events available.";
-    document.body.appendChild(app);
-    return;
-  }
-
-  app.appendChild(EventList(state.events));
-
-  const detailsDiv = document.createElement("div");
-  if (state.selectedEvent) {
-    detailsDiv.appendChild(EventDetails(state.selectedEvent));
+    const noEvents = document.createElement("p");
+    noEvents.textContent = "No events available.";
+    app.appendChild(noEvents);
   } else {
-    detailsDiv.textContent = "Please select a party to see details.";
-    detailsDiv.style.fontStyle = "italic";
+    app.appendChild(EventList(state.events));
+
+    const detailsDiv = document.createElement("div");
+    if (state.selectedEvent) {
+      detailsDiv.appendChild(EventDetails(state.selectedEvent));
+    } else {
+      detailsDiv.textContent = "Please select a party to see details.";
+    }
+    app.appendChild(detailsDiv);
+    document.body.appendChild(app);
   }
-  app.appendChild(detailsDiv);
-
-  document.body.appendChild(app);
 }
-
-fetchEvents();
